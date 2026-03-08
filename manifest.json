@@ -1,7 +1,8 @@
 {
 "name": "Gym Progress",
 "short_name": "Gym Progress",
-"start_url": "./index.html",
+"start_url": "/gym-app/",
+"scope": "/gym-app/",
 "display": "standalone",
 "background_color": "#111111",
 "theme_color": "#00ff95",
