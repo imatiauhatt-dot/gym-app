@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Gym Progress</title>
 
 <link rel="manifest" href="manifest.json">
-
 <meta name="theme-color" content="#00ff95">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Gym Progress">
 
-<link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
@@ -23,124 +26,456 @@ body{
 font-family:Arial;
 background:#111;
 color:white;
+text-align:center;
 margin:0;
 padding:20px;
 }
 
 h1{
-text-align:center;
+color:#00ff95;
+}
+
+.container{
+max-width:500px;
+margin:auto;
+}
+
+.card{
+background:#1e1e1e;
+padding:20px;
+border-radius:12px;
+margin-bottom:20px;
+}
+
+input,select{
+width:90%;
+padding:10px;
+margin:6px;
+border-radius:6px;
+border:none;
 }
 
 button{
-background:#00ff95;
+padding:10px 16px;
+margin:6px;
 border:none;
-padding:10px;
-margin:5px;
 border-radius:8px;
-font-size:16px;
+cursor:pointer;
+font-size:15px;
 }
 
-input{
+.add{background:#00bfff;}
+.save{background:#ffaa00;}
+.delete{background:#ff4d4d;}
+
+.exercise{
+background:#222;
 padding:10px;
-margin:5px;
+margin:8px 0;
 border-radius:8px;
-border:none;
-width:80%;
 }
 
-.rutina{
-background:#1c1c1c;
-padding:10px;
-border-radius:10px;
-margin-top:10px;
-display:flex;
-justify-content:space-between;
-align-items:center;
+.lastStats{
+font-size:13px;
+color:#aaa;
+margin-bottom:6px;
 }
 
-.eliminar{
-background:red;
-color:white;
+.toast{
+position:fixed;
+bottom:30px;
+left:50%;
+transform:translateX(-50%);
+background:#1e1e1e;
+padding:18px 24px;
+border-radius:12px;
+box-shadow:0 0 15px rgba(0,0,0,0.6);
+font-size:15px;
+opacity:0;
+transition:0.4s;
+cursor:pointer;
 }
+
+.toast.show{
+opacity:1;
+}
+
+.green{color:#00ff95;}
+.red{color:#ff4d4d;}
+.yellow{color:#ffd500;}
 
 </style>
 
 </head>
+
 <body>
 
-<h1>Gym Progress</h1>
+<div class="container">
 
-<div>
+<h1>GYM PROGRESS</h1>
 
-<input id="nombreRutina" placeholder="Nombre de la rutina">
+<div class="card">
 
-<button onclick="agregarRutina()">
-Agregar
-</button>
+<h3>Rutina</h3>
+
+<select id="routineSelect"></select>
+
+<input id="newRoutine" placeholder="Nueva rutina">
+
+<button class="add" onclick="addRoutine()">Agregar rutina</button>
+<button class="delete" onclick="deleteRoutine()">Eliminar rutina</button>
 
 </div>
 
-<div id="listaRutinas"></div>
+<div class="card">
+
+<h3>Agregar ejercicio</h3>
+
+<input id="exerciseName" placeholder="Ejercicio">
+
+<button class="add" onclick="addExercise()">Agregar ejercicio</button>
+
+</div>
+
+<div class="card">
+
+<h3>Entrenamiento</h3>
+
+<div id="exerciseList"></div>
+
+<button class="save" onclick="saveWorkout()">Guardar progreso</button>
+
+</div>
+
+<div class="card">
+
+<h3>Progreso</h3>
+
+<select id="progressExercise"></select>
+
+<button onclick="showProgress()">Ver progreso</button>
+
+<canvas id="pesoChart"></canvas>
+<br>
+<canvas id="repsChart"></canvas>
+<br>
+<canvas id="rmChart"></canvas>
+
+</div>
+
+</div>
+
+<div id="toast" class="toast"></div>
 
 <script>
 
-let rutinas = JSON.parse(localStorage.getItem("rutinas")) || []
+let routines = JSON.parse(localStorage.getItem("routines")) || {}
 
-function guardar(){
-localStorage.setItem("rutinas", JSON.stringify(rutinas))
+let routineSelect=document.getElementById("routineSelect")
+
+function saveData(){
+localStorage.setItem("routines",JSON.stringify(routines))
 }
 
-function render(){
+function addRoutine(){
 
-const lista = document.getElementById("listaRutinas")
+let name=document.getElementById("newRoutine").value
+if(!name)return
 
-lista.innerHTML=""
+routines[name]={exercises:{}}
 
-rutinas.forEach((r,index)=>{
+let option=document.createElement("option")
+option.value=name
+option.textContent=name
 
-const div=document.createElement("div")
-div.className="rutina"
+routineSelect.appendChild(option)
+
+document.getElementById("newRoutine").value=""
+
+saveData()
+
+}
+
+function deleteRoutine(){
+
+let routine=routineSelect.value
+
+if(!routine)return
+
+if(confirm("Eliminar rutina completa?")){
+
+delete routines[routine]
+
+saveData()
+
+routineSelect.innerHTML=""
+
+loadRoutines()
+
+renderExercises()
+
+updateProgressList()
+
+}
+
+}
+
+function addExercise(){
+
+let routine=routineSelect.value
+let name=document.getElementById("exerciseName").value
+
+if(!routine||!name)return
+
+if(!routines[routine].exercises[name]){
+routines[routine].exercises[name]=[]
+}
+
+renderExercises()
+updateProgressList()
+
+document.getElementById("exerciseName").value=""
+
+saveData()
+
+}
+
+function deleteExercise(ex){
+
+let routine=routineSelect.value
+
+if(confirm("Eliminar ejercicio?")){
+
+delete routines[routine].exercises[ex]
+
+saveData()
+
+renderExercises()
+updateProgressList()
+
+}
+
+}
+
+function getLastStats(data){
+
+if(data.length===0)return {weight:"",reps:""}
+
+return data[data.length-1]
+
+}
+
+function renderExercises(){
+
+let routine=routineSelect.value
+let container=document.getElementById("exerciseList")
+
+container.innerHTML=""
+
+if(!routine)return
+
+Object.keys(routines[routine].exercises).forEach(ex=>{
+
+let data=routines[routine].exercises[ex]
+let last=getLastStats(data)
+
+let div=document.createElement("div")
+div.className="exercise"
 
 div.innerHTML=`
-<span>${r}</span>
-<button class="eliminar" onclick="eliminarRutina(${index})">
-Eliminar
-</button>
+<b>${ex}</b>
+<button class="delete" onclick="deleteExercise('${ex}')">❌</button>
+<div class="lastStats">Último: ${last.weight || "-"} kg x ${last.reps || "-"} reps</div>
+Peso <input type="number" id="w_${ex}" value="${last.weight || ""}">
+Reps <input type="number" id="r_${ex}" value="${last.reps || ""}">
 `
 
-lista.appendChild(div)
+container.appendChild(div)
 
 })
 
 }
 
-function agregarRutina(){
+routineSelect.addEventListener("change",()=>{
 
-const input=document.getElementById("nombreRutina")
+renderExercises()
+updateProgressList()
 
-if(input.value==="") return
+})
 
-rutinas.push(input.value)
+function calcular1RM(peso,reps){
+return peso*(1+reps/30)
+}
 
-guardar()
+function showToast(html){
 
-input.value=""
+let toast=document.getElementById("toast")
 
-render()
+toast.innerHTML=html
+
+toast.classList.add("show")
 
 }
 
-function eliminarRutina(index){
+document.getElementById("toast").onclick=function(){
+this.classList.remove("show")
+}
 
-rutinas.splice(index,1)
+function saveWorkout(){
 
-guardar()
+let routine=routineSelect.value
+let date=new Date().toLocaleDateString()
 
-render()
+let message=""
+
+Object.keys(routines[routine].exercises).forEach(ex=>{
+
+let w=document.getElementById("w_"+ex).value
+let r=document.getElementById("r_"+ex).value
+
+if(w){
+
+let data=routines[routine].exercises[ex]
+
+let last=data[data.length-1]
+
+let newEntry={
+date:date,
+weight:Number(w),
+reps:Number(r)
+}
+
+data.push(newEntry)
+
+if(last){
+
+let rmActual=calcular1RM(newEntry.weight,newEntry.reps)
+let rmAnterior=calcular1RM(last.weight,last.reps)
+
+let progreso=((rmActual-rmAnterior)/rmAnterior)*100
+
+let color="yellow"
+
+if(progreso>0)color="green"
+else if(progreso<0)color="red"
+
+message+=`${ex}: <span class="${color}">${progreso.toFixed(2)}%</span><br>`
 
 }
 
-render()
+}
+
+})
+
+saveData()
+
+renderExercises()
+
+showToast(message)
+
+}
+
+function updateProgressList(){
+
+let routine=routineSelect.value
+let select=document.getElementById("progressExercise")
+
+select.innerHTML=""
+
+if(!routine)return
+
+Object.keys(routines[routine].exercises).forEach(ex=>{
+
+let option=document.createElement("option")
+option.value=ex
+option.textContent=ex
+
+select.appendChild(option)
+
+})
+
+}
+
+let pesoChart
+let repsChart
+let rmChart
+
+function showProgress(){
+
+let routine=routineSelect.value
+let ex=document.getElementById("progressExercise").value
+
+let data=routines[routine].exercises[ex]
+
+let labels=data.map(d=>d.date)
+let weights=data.map(d=>d.weight)
+let reps=data.map(d=>d.reps)
+let rm=data.map(d=>calcular1RM(d.weight,d.reps))
+
+if(pesoChart)pesoChart.destroy()
+if(repsChart)repsChart.destroy()
+if(rmChart)rmChart.destroy()
+
+pesoChart=new Chart(document.getElementById("pesoChart"),{
+type:"line",
+data:{
+labels:labels,
+datasets:[{
+label:"Peso (kg)",
+data:weights,
+borderColor:"#00ff95",
+fill:false
+}]
+}
+})
+
+repsChart=new Chart(document.getElementById("repsChart"),{
+type:"line",
+data:{
+labels:labels,
+datasets:[{
+label:"Repeticiones",
+data:reps,
+borderColor:"#00bfff",
+fill:false
+}]
+}
+})
+
+rmChart=new Chart(document.getElementById("rmChart"),{
+type:"line",
+data:{
+labels:labels,
+datasets:[{
+label:"1RM estimado",
+data:rm,
+borderColor:"#ffaa00",
+fill:false
+}]
+}
+})
+
+}
+
+function loadRoutines(){
+
+Object.keys(routines).forEach(r=>{
+
+let option=document.createElement("option")
+option.value=r
+option.textContent=r
+
+routineSelect.appendChild(option)
+
+})
+
+}
+
+loadRoutines()
+
+if ('serviceWorker' in navigator) {
+navigator.serviceWorker.register('./sw.js')
+}
 
 </script>
 
