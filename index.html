@@ -77,6 +77,31 @@ color:#aaa;
 margin-bottom:6px;
 }
 
+/* BURBUJA */
+
+.toast{
+position:fixed;
+bottom:30px;
+left:50%;
+transform:translateX(-50%);
+background:#1e1e1e;
+padding:18px 24px;
+border-radius:12px;
+box-shadow:0 0 15px rgba(0,0,0,0.6);
+font-size:15px;
+opacity:0;
+transition:0.4s;
+cursor:pointer;
+}
+
+.toast.show{
+opacity:1;
+}
+
+.green{color:#00ff95;}
+.red{color:#ff4d4d;}
+.yellow{color:#ffd500;}
+
 </style>
 
 </head>
@@ -127,11 +152,17 @@ margin-bottom:6px;
 
 <button onclick="showProgress()">Ver progreso</button>
 
-<canvas id="chart"></canvas>
+<canvas id="pesoChart"></canvas>
+<br>
+<canvas id="repsChart"></canvas>
+<br>
+<canvas id="rmChart"></canvas>
 
 </div>
 
 </div>
+
+<div id="toast" class="toast"></div>
 
 <script>
 
@@ -245,10 +276,30 @@ updateProgressList()
 
 })
 
+function calcular1RM(peso,reps){
+return peso*(1+reps/30)
+}
+
+function showToast(html){
+
+let toast=document.getElementById("toast")
+
+toast.innerHTML=html
+
+toast.classList.add("show")
+
+}
+
+document.getElementById("toast").onclick=function(){
+this.classList.remove("show")
+}
+
 function saveWorkout(){
 
 let routine=routineSelect.value
 let date=new Date().toLocaleDateString()
+
+let message=""
 
 Object.keys(routines[routine].exercises).forEach(ex=>{
 
@@ -257,11 +308,33 @@ let r=document.getElementById("r_"+ex).value
 
 if(w){
 
-routines[routine].exercises[ex].push({
+let data=routines[routine].exercises[ex]
+
+let last=data[data.length-1]
+
+let newEntry={
 date:date,
 weight:Number(w),
 reps:Number(r)
-})
+}
+
+data.push(newEntry)
+
+if(last){
+
+let rmActual=calcular1RM(newEntry.weight,newEntry.reps)
+let rmAnterior=calcular1RM(last.weight,last.reps)
+
+let progreso=((rmActual-rmAnterior)/rmAnterior)*100
+
+let color="yellow"
+
+if(progreso>0)color="green"
+else if(progreso<0)color="red"
+
+message+=`${ex}: <span class="${color}">${progreso.toFixed(2)}%</span><br>`
+
+}
 
 }
 
@@ -271,7 +344,7 @@ saveData()
 
 renderExercises()
 
-alert("Progreso guardado 💪")
+showToast(message)
 
 }
 
@@ -296,7 +369,9 @@ select.appendChild(option)
 
 }
 
-let chart
+let pesoChart
+let repsChart
+let rmChart
 
 function showProgress(){
 
@@ -307,13 +382,15 @@ let data=routines[routine].exercises[ex]
 
 let labels=data.map(d=>d.date)
 let weights=data.map(d=>d.weight)
+let reps=data.map(d=>d.reps)
+let rm=data.map(d=>calcular1RM(d.weight,d.reps))
 
-if(chart)chart.destroy()
+if(pesoChart)pesoChart.destroy()
+if(repsChart)repsChart.destroy()
+if(rmChart)rmChart.destroy()
 
-chart=new Chart(document.getElementById("chart"),{
-
+pesoChart=new Chart(document.getElementById("pesoChart"),{
 type:"line",
-
 data:{
 labels:labels,
 datasets:[{
@@ -323,7 +400,32 @@ borderColor:"#00ff95",
 fill:false
 }]
 }
+})
 
+repsChart=new Chart(document.getElementById("repsChart"),{
+type:"line",
+data:{
+labels:labels,
+datasets:[{
+label:"Repeticiones",
+data:reps,
+borderColor:"#00bfff",
+fill:false
+}]
+}
+})
+
+rmChart=new Chart(document.getElementById("rmChart"),{
+type:"line",
+data:{
+labels:labels,
+datasets:[{
+label:"1RM estimado",
+data:rm,
+borderColor:"#ffaa00",
+fill:false
+}]
+}
 })
 
 }
@@ -348,4 +450,3 @@ loadRoutines()
 
 </body>
 </html>
-```
