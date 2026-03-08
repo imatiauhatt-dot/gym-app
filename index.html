@@ -121,6 +121,7 @@ opacity:1;
 <input id="newRoutine" placeholder="Nueva rutina">
 
 <button class="add" onclick="addRoutine()">Agregar rutina</button>
+<button class="delete" onclick="deleteRoutine()">Eliminar rutina</button>
 
 </div>
 
@@ -190,6 +191,30 @@ routineSelect.appendChild(option)
 document.getElementById("newRoutine").value=""
 
 saveData()
+
+}
+
+function deleteRoutine(){
+
+let routine=routineSelect.value
+
+if(!routine)return
+
+if(confirm("Eliminar rutina completa?")){
+
+delete routines[routine]
+
+saveData()
+
+routineSelect.innerHTML=""
+
+loadRoutines()
+
+renderExercises()
+
+updateProgressList()
+
+}
 
 }
 
